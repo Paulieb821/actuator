@@ -10,7 +10,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::runtime::Runtime;
 use tokio::sync::Mutex;
-
+// use tokio::time;
 struct ErrReportWrapper(eyre::Report);
 
 impl From<eyre::Report> for ErrReportWrapper {
@@ -45,6 +45,7 @@ struct PyRobstrideActuatorCommand {
     torque: Option<f64>,
 }
 
+// PyRobstrideActuator Command - ORIGINAL
 #[gen_stub_pymethods]
 #[pymethods]
 impl PyRobstrideActuatorCommand {
@@ -58,6 +59,25 @@ impl PyRobstrideActuatorCommand {
         }
     }
 }
+// PyRobstrideActuator Command - MARYANNA
+// #[gen_stub_pymethods]
+// #[pymethods]
+// impl PyRobstrideActuatorCommand {
+//     #[new]
+//     fn new(
+//         actuator_id: u32,
+//         position: Option<f64>,
+//         velocity: Option<f64>,
+//         torque: Option<f64>,
+//     ) -> Self {
+//         Self {
+//             actuator_id,
+//             position: position,
+//             velocity: velocity,
+//             torque: torque,
+//         }
+//     }
+// }
 
 #[gen_stub_pyclass]
 #[pyclass]
@@ -79,6 +99,7 @@ struct PyRobstrideConfigureRequest {
     new_actuator_id: Option<u32>,
 }
 
+// PyRobstrideConfigureRequest - ORIGINAL
 #[gen_stub_pymethods]
 #[pymethods]
 impl PyRobstrideConfigureRequest {
@@ -95,6 +116,31 @@ impl PyRobstrideConfigureRequest {
         }
     }
 }
+// PyRobstrideConfigureRequest - MARYANNA
+// #[gen_stub_pymethods]
+// #[pymethods]
+// impl PyRobstrideConfigureRequest {
+//     #[new]
+//     fn new(
+//         actuator_id: u32,
+//         kp: Option<f64>,
+//         kd: Option<f64>,
+//         max_torque: Option<f64>,
+//         torque_enabled: Option<bool>,
+//         zero_position: Option<bool>,
+//         new_actuator_id: Option<u32>,
+//     ) -> Self {
+//         Self {
+//             actuator_id,
+//             kp: kp,
+//             kd: kd,
+//             max_torque: max_torque,
+//             torque_enabled: torque_enabled,
+//             zero_position: zero_position,
+//             new_actuator_id: new_actuator_id,
+//         }
+//     }
+// }
 
 #[gen_stub_pyclass]
 #[pyclass]
@@ -327,7 +373,7 @@ impl From<PyRobstrideActuatorConfig> for robstride::ActuatorConfiguration {
 }
 
 #[pymodule]
-fn robstride_bindings(m: &Bound<PyModule>) -> PyResult<()> {
+fn bindings(py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(get_version, m)?)?;
     m.add_class::<PyRobstrideActuator>()?;
     m.add_class::<PyRobstrideActuatorCommand>()?;
