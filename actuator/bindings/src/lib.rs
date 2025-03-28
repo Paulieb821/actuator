@@ -220,7 +220,8 @@ impl PyRobstrideActuator {
                     interval.tick().await;
                     let mut clone: tokio::sync::MutexGuard<'_, Supervisor> =
                         supervisor_clone.lock().await;
-                    if let Err(e) = clone.run_update_and_control().await {
+                    // clone.run_update_and_control()
+                    if let Err(e) = clone.run().await {
                         tracing::error!("Error in run_update_and_control: {:?}", e);
                     }
                     drop(clone);
