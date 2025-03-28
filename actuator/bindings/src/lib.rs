@@ -1,5 +1,5 @@
-use pyo3::prelude::PyErr;
 use pyo3::prelude::*;
+use pyo3::wrap_pyfunction;
 use pyo3_stub_gen::define_stub_info_gatherer;
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pyfunction, gen_stub_pymethods};
 use robstride::{
@@ -306,6 +306,22 @@ impl PyRobstrideActuator {
             Ok(responses)
         })
     }
+
+    // New method to start the supervisor's `run` function
+    pub fn start_supervisor(&self, interval_sec: f64) -> PyResult<()> {
+        let interval = Duration::from_secs_f64(interval_sec);
+
+        // Create a new task in the Tokio runtime
+        self.rt.spawn(async move {
+            let mut supervisor = self.supervisor.lock().await;
+            if let Err(e) = supervisor.run(interval).await {
+                // Handle the error (you might want to log it or propagate it in a way that's usable by Python)
+                eprintln!("Error running supervisor: {}", e);
+            }
+        });
+
+        Ok(())
+    }
 }
 
 impl From<PyRobstrideActuatorConfig> for robstride::ActuatorConfiguration {
@@ -327,7 +343,7 @@ impl From<PyRobstrideActuatorConfig> for robstride::ActuatorConfiguration {
 }
 
 #[pymodule]
-fn bindings(m: &Bound<PyModule>) -> PyResult<()> {
+fn bindings(m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(get_version, m)?)?;
     m.add_class::<PyRobstrideActuator>()?;
     m.add_class::<PyRobstrideActuatorCommand>()?;
