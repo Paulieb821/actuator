@@ -460,6 +460,102 @@ impl Supervisor {
         Ok(discovered_ids.clone())
     }
 
+    pub async fn run_update_and_control(&self) -> Result<()> {
+        let actuators_snapshot = self.actuators.read().await;
+
+        // Process actuators
+        for (&id, record) in actuators_snapshot.iter() {
+            if record.state.enabled {
+                if record.state.ready {
+                    let feedback = match record.state.feedback.as_ref() {
+                        Some(f) => f,
+                        None => {
+                            warn!(
+                                "No feedback available for actuator {}, skipping control {:?}",
+                                id, record.state.control_command
+                            );
+                            continue;
+                        }
+                    };
+                    let mut command_valid = true;
+
+                    // Check angle change limit if configured
+                    if let Some(max_angle_change) = record.state.configuration.max_angle_change {
+                        let max_angle_change_percent = normalize_value(
+                            max_angle_change,
+                            -4.0 * std::f32::consts::PI,
+                            4.0 * std::f32::consts::PI,
+                            -100.0,
+                            100.0,
+                        );
+
+                        let angle_diff =
+                            (record.state.control_command.target_angle - feedback.angle).abs();
+                        if angle_diff > max_angle_change_percent {
+                            error!(
+                                "Actuator {} angle change too large: {:.3}% > {:.3}%, target={:.3}%, feedback={:.3}%",
+                                id, angle_diff, max_angle_change_percent, record.state.control_command.target_angle, feedback.angle
+                            );
+                            command_valid = false;
+                        }
+                    }
+
+                    // Check velocity limit if configured
+                    if let Some(max_velocity) = record.state.configuration.max_velocity {
+                        if record.state.control_command.target_velocity.abs() > max_velocity {
+                            error!(
+                                "Actuator {} velocity too large: {:.3} > {:.3}, target={:.3}, feedback={:.3}",
+                                id,
+                                record.state.control_command.target_velocity.abs(),
+                                max_velocity,
+                                record.state.control_command.target_velocity,
+                                feedback.velocity
+                            );
+                            command_valid = false;
+                        }
+                    }
+                    if command_valid {
+                        if let Err(e) = record
+                            .actuator
+                            .control(record.state.control_command.clone())
+                            .await
+                        {
+                            println!("failed {}", e);
+                            error!("Failed to control actuator {}: {}", id, e);
+                        }
+                    } else {
+                        if let Err(e) = record.actuator.get_feedback().await {
+                            error!("Failed to get feedback from actuator {}: {}", id, e);
+                        }
+                    }
+                } else {
+                    warn!(
+                        "Actuator {} is not ready, {:?}",
+                        id, record.state.control_command
+                    );
+                }
+            } else {
+                if let Err(e) = record.actuator.get_feedback().await {
+                    error!("Failed to get feedback from actuator {}: {}", id, e);
+                }
+            }
+        }
+
+        drop(actuators_snapshot); // Drop read lock before taking write lock
+        let mut actuators = self.actuators.write().await;
+        for (&id, record) in actuators.iter_mut() {
+            if record.state.last_feedback.elapsed()? > self.feedback_timeout {
+                error!("Feedback timeout for actuator {}", id);
+                record.state.enabled = false;
+
+                if let Err(e) = record.actuator.disable(false).await {
+                    error!("Failed to disable actuator {} after timeout: {}", id, e);
+                }
+            }
+        }        
+        return Result::Ok(());
+    }
+
     pub async fn run(&mut self, interval: Duration) -> Result<()> {
         info!("Starting supervisor");
         let mut interval = time::interval(interval);
