@@ -5,6 +5,7 @@ from .bindings import (
     PyRobstrideActuatorConfig as RobstrideActuatorConfig,
     PyRobstrideActuatorCommand as RobstrideActuatorCommand,
     PyRobstrideConfigureRequest as RobstrideConfigureRequest,
+    PyRobstrideActuatorState as RobstrideActuatorState,
     get_version,
 )
 

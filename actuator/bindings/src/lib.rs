@@ -10,7 +10,6 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::runtime::Runtime;
 use tokio::sync::Mutex;
-use tokio::time;
 
 struct ErrReportWrapper(eyre::Report);
 
@@ -208,47 +207,6 @@ impl PyRobstrideActuator {
         Ok(PyRobstrideActuator {
             supervisor: Arc::new(Mutex::new(supervisor)),
             rt,
-        })
-    }
-
-    // fn run_main_loop(&self, interval_ms: u64) -> PyResult<bool> {
-    //     self.rt.block_on(async {
-    //         let mut interval = time::interval(Duration::from_millis(interval_ms));
-    //         let supervisor_clone = self.supervisor.clone();
-    //         self.rt.spawn(async move {
-    //             loop {
-    //                 interval.tick().await;
-    //                 let mut clone: tokio::sync::MutexGuard<'_, Supervisor> =
-    //                     supervisor_clone.lock().await;
-    //                 // clone.run_update_and_control()
-    //                 if let Err(e) = clone.run_update_and_control().await {
-    //                     tracing::error!("Error in run_update_and_control: {:?}", e);
-    //                 }
-    //                 drop(clone);
-    //             }
-    //         });
-    //         return Ok(true);
-    //     })
-    // }
-
-    fn run_main_loop(&self, interval_ms: u64) -> PyResult<bool> {
-        self.rt.block_on(async {
-            let interval = Duration::from_millis(interval_ms);  // Convert the interval to Duration
-            let supervisor_clone = self.supervisor.clone();
-    
-            // Spawn the async task to run the supervisor's loop
-            self.rt.spawn(async move {
-                loop {
-                    // Lock the supervisor clone, and then call `run` on the inner `Supervisor`
-                    let mut supervisor = supervisor_clone.lock().await; // Lock the supervisor mutex
-    
-                    if let Err(e) = supervisor.run(interval).await {
-                        tracing::error!("Error in supervisor run loop: {:?}", e);
-                    }
-                }
-            });
-    
-            Ok(true)  // Return Ok result as expected for PyResult
         })
     }
 
