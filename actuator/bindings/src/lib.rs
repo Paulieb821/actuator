@@ -235,12 +235,14 @@ impl PyRobstrideActuator {
         self.rt.block_on(async {
             let interval = Duration::from_millis(interval_ms);  // Convert the interval to Duration
             let supervisor_clone = self.supervisor.clone();
-            
+    
             // Spawn the async task to run the supervisor's loop
             self.rt.spawn(async move {
                 loop {
-                    // Call the `run` function on the supervisor, which already handles its internal loop
-                    if let Err(e) = supervisor_clone.run(interval).await {
+                    // Lock the supervisor clone, and then call `run` on the inner `Supervisor`
+                    let mut supervisor = supervisor_clone.lock().await; // Lock the supervisor mutex
+    
+                    if let Err(e) = supervisor.run(interval).await {
                         tracing::error!("Error in supervisor run loop: {:?}", e);
                     }
                 }
@@ -249,8 +251,6 @@ impl PyRobstrideActuator {
             Ok(true)  // Return Ok result as expected for PyResult
         })
     }
-    
-
 
     fn command_actuators(&self, commands: Vec<PyRobstrideActuatorCommand>) -> PyResult<Vec<bool>> {
         self.rt.block_on(async {
